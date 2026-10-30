@@ -30,17 +30,22 @@ require __DIR__ . '/includes/header.php';
   <article class="card">
     <h3>Share Resources</h3>
     <p class="meta" style="margin-bottom: 16px;">Textbooks, laptops, professional attire, and more — offered by women, for women.</p>
-    <a href="<?= BASE_URL ?>/resources.php" class="btn btn-outline btn-sm">Browse resources</a>
+    <!-- UPDATED LINK -->
+    <a href="<?= BASE_URL ?>/explore.php?tab=resources" class="btn btn-outline btn-sm">Browse resources</a>
   </article>
+  
   <article class="card">
     <h3>Find a Mentor</h3>
     <p class="meta" style="margin-bottom: 16px;">Connect with mentors and peers who understand your goals and can help you reach them.</p>
-    <a href="<?= BASE_URL ?>/mentors.php" class="btn btn-outline btn-sm">Meet the community</a>
+    <!-- UPDATED LINK -->
+    <a href="<?= BASE_URL ?>/community.php?tab=mentors" class="btn btn-outline btn-sm">Meet the community</a>
   </article>
+  
   <article class="card">
     <h3>Discover Opportunities</h3>
     <p class="meta" style="margin-bottom: 16px;">Internships, scholarships, workshops, and events — curated by members like you.</p>
-    <a href="<?= BASE_URL ?>/opportunities.php" class="btn btn-outline btn-sm">See opportunities</a>
+    <!-- UPDATED LINK -->
+    <a href="<?= BASE_URL ?>/explore.php?tab=opportunities" class="btn btn-outline btn-sm">See opportunities</a>
   </article>
 </section>
 <?php require __DIR__ . '/includes/footer.php'; ?>
