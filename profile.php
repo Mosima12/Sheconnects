@@ -1,7 +1,6 @@
 <?php
-// profile.php — view and edit the current user's profile
+// profile.php — exact Figma replica
 declare(strict_types=1);
-
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/auth.php';
 require_login();
@@ -12,186 +11,247 @@ $userId = current_user_id();
 $errors = [];
 $old = [];
 
-// Load the current user (used for display + defaults).
-$stmt = $pdo->prepare(
-    'SELECT id, name, email, bio, skills, interests, career_goals, industry, is_mentor, created_at
-       FROM users WHERE id = ? LIMIT 1'
-);
+$stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
 $stmt->execute([$userId]);
 $me = $stmt->fetch();
-if (!$me) {
-    header('Location: ' . BASE_URL . '/logout.php');
-    exit;
-}
-
-$editing = isset($_GET['edit']) && $_GET['edit'] === '1';
+if (!$me) { header('Location: ' . BASE_URL . '/logout.php'); exit; }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf_or_die();
-    $editing = true;
-
     $name         = trim((string)($_POST['name'] ?? ''));
     $bio          = trim((string)($_POST['bio'] ?? ''));
     $skills       = trim((string)($_POST['skills'] ?? ''));
-    $interests    = trim((string)($_POST['interests'] ?? ''));
-    $career_goals = trim((string)($_POST['career_goals'] ?? ''));
     $industry     = trim((string)($_POST['industry'] ?? ''));
     $isMentor     = isset($_POST['is_mentor']) ? 1 : 0;
 
-    if ($err = validate_length($name, 2, 100, 'Name'))                  $errors[] = $err;
-    if ($bio          !== '' && mb_strlen($bio) > 5000)                 $errors[] = 'Bio must be 5000 characters or fewer.';
-    if ($skills       !== '' && mb_strlen($skills) > 500)               $errors[] = 'Skills must be 500 characters or fewer.';
-    if ($interests    !== '' && mb_strlen($interests) > 500)            $errors[] = 'Interests must be 500 characters or fewer.';
-    if ($career_goals !== '' && mb_strlen($career_goals) > 500)         $errors[] = 'Career goals must be 500 characters or fewer.';
-    if ($industry     !== '' && mb_strlen($industry) > 120)             $errors[] = 'Industry must be 120 characters or fewer.';
+    if (mb_strlen($name) < 2) $errors[] = 'Name must be at least 2 characters.';
 
     if (!$errors) {
-        $stmt = $pdo->prepare(
-            'UPDATE users
-                SET name = ?, bio = ?, skills = ?, interests = ?,
-                    career_goals = ?, industry = ?, is_mentor = ?
-              WHERE id = ?'
-        );
-        $stmt->execute([
-            $name,
-            $bio          !== '' ? $bio          : null,
-            $skills       !== '' ? $skills       : null,
-            $interests    !== '' ? $interests    : null,
-            $career_goals !== '' ? $career_goals : null,
-            $industry     !== '' ? $industry     : null,
-            $isMentor,
-            $userId,
-        ]);
-        flash('success', 'Profile updated.');
+        $stmt = $pdo->prepare('UPDATE users SET name=?, bio=?, skills=?, industry=?, is_mentor=? WHERE id=?');
+        $stmt->execute([$name, $bio, $skills, $industry, $isMentor, $userId]);
+        flash('success', 'Profile saved successfully.');
         header('Location: ' . BASE_URL . '/profile.php');
         exit;
     }
-
-    // Keep what the user typed so nothing is lost on error.
-    $old = compact('name', 'bio', 'skills', 'interests', 'career_goals', 'industry');
+    $old = compact('name', 'bio', 'skills', 'industry');
     $old['is_mentor'] = $isMentor;
 }
 
-// Defaults for the edit form: prefer submitted values, then DB values.
 $form = [
     'name'         => $old['name']         ?? $me['name'],
     'bio'          => $old['bio']          ?? $me['bio']          ?? '',
     'skills'       => $old['skills']       ?? $me['skills']       ?? '',
-    'interests'    => $old['interests']    ?? $me['interests']    ?? '',
-    'career_goals' => $old['career_goals'] ?? $me['career_goals'] ?? '',
     'industry'     => $old['industry']     ?? $me['industry']     ?? '',
     'is_mentor'    => $old['is_mentor']    ?? (int)$me['is_mentor'],
 ];
 
-$pageTitle = 'My profile';
-$activeNav = '';
+// Extract initials for avatar
+$words = explode(' ', $form['name']);
+$initials = strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
+
+$pageTitle = 'Profile & safety';
+// INCLUDE HEADER
 require __DIR__ . '/includes/header.php';
 ?>
 
-<?php if (!$editing): ?>
+<!-- LINK TO THE NEW CSS FILE -->
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/profile.css">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
-    <h1 style="margin:0;">My profile</h1>
-    <a class="btn btn-primary" href="<?= BASE_URL ?>/profile.php?edit=1">Edit profile</a>
-  </div>
-
-  <div class="card">
-    <h2 style="margin-top:0;margin-bottom:4px;">
-      <?= e($me['name']) ?>
-      <?php if ($me['is_mentor']): ?>
-        <span class="pill pill-accepted" style="font-size:.75rem;vertical-align:middle;">Mentor</span>
-      <?php endif; ?>
-    </h2>
-    <p class="meta" style="margin:0 0 14px;">
-      <?= e($me['email']) ?>
-      · Member since <?= e(date('F Y', strtotime($me['created_at']))) ?>
-      <?php if ($me['industry']): ?> · <?= e($me['industry']) ?><?php endif; ?>
-    </p>
-
-    <?php if ($me['bio']): ?>
-      <p><?= nl2br(e($me['bio'])) ?></p>
-    <?php else: ?>
-      <p class="meta"><em>No bio yet — tell the community a little about yourself.</em></p>
+<div class="profile-wrap">
+    
+    <?php if ($errors): ?>
+        <div style="background:#fee2e2; color:#b91c1c; padding:16px; border-radius:12px; margin-bottom:24px;">
+            <ul style="margin:0;padding-left:18px;"><?php foreach ($errors as $err): ?><li><?= e($err) ?></li><?php endforeach; ?></ul>
+        </div>
     <?php endif; ?>
 
-    <dl style="display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:20px 0 0;">
-      <dt style="font-weight:600;">Skills</dt>
-      <dd style="margin:0;"><?= $me['skills'] ? e($me['skills']) : '<span class="meta">Not set</span>' ?></dd>
-
-      <dt style="font-weight:600;">Interests</dt>
-      <dd style="margin:0;"><?= $me['interests'] ? e($me['interests']) : '<span class="meta">Not set</span>' ?></dd>
-
-      <dt style="font-weight:600;">Career goals</dt>
-      <dd style="margin:0;"><?= $me['career_goals'] ? e($me['career_goals']) : '<span class="meta">Not set</span>' ?></dd>
-
-      <dt style="font-weight:600;">Industry</dt>
-      <dd style="margin:0;"><?= $me['industry'] ? e($me['industry']) : '<span class="meta">Not set</span>' ?></dd>
-
-      <dt style="font-weight:600;">Available to mentor</dt>
-      <dd style="margin:0;"><?= $me['is_mentor'] ? 'Yes' : 'No' ?></dd>
-    </dl>
-  </div>
-
-<?php else: ?>
-
-  <h1><?= $errors ? 'Edit your profile — please fix the errors below' : 'Edit your profile' ?></h1>
-  <p class="meta" style="margin-bottom:16px;">Update how the community sees you. Your email and password are not changed here.</p>
-
-  <?php if ($errors): ?>
-    <div class="flash flash-error">
-      <ul style="margin:0;padding-left:18px;">
-        <?php foreach ($errors as $err): ?><li><?= e($err) ?></li><?php endforeach; ?>
-      </ul>
-    </div>
-  <?php endif; ?>
-
-  <form class="form" method="post" novalidate>
-    <?php csrf_field(); ?>
-
-    <div class="field">
-      <label for="name">Full name</label>
-      <input type="text" id="name" name="name" value="<?= e($form['name']) ?>" required maxlength="100">
+    <div class="profile-header">
+        <div>
+            <div class="subtitle">YOUR SPACE, YOUR BOUNDARIES</div>
+            <h1>Profile &amp; safety</h1>
+            <p>Choose what you share and who can contact you. Your safety comes first.</p>
+        </div>
+        <!-- Save button triggers the form submit below -->
+        <button type="submit" form="profileForm" class="save-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Save changes
+        </button>
     </div>
 
-    <div class="field">
-      <label for="bio">Short bio</label>
-      <textarea id="bio" name="bio" maxlength="5000"><?= e($form['bio']) ?></textarea>
-      <div class="hint">Who you are, what you do, and what you'd like others to know.</div>
-    </div>
+    <form id="profileForm" method="post" class="profile-grid-layout">
+        <?php csrf_field(); ?>
 
-    <div class="row">
-      <div class="field">
-        <label for="skills">Skills</label>
-        <input type="text" id="skills" name="skills" value="<?= e($form['skills']) ?>" maxlength="500" placeholder="e.g. Graphic design, Python, bookkeeping">
-      </div>
-      <div class="field">
-        <label for="interests">Interests</label>
-        <input type="text" id="interests" name="interests" value="<?= e($form['interests']) ?>" maxlength="500" placeholder="e.g. Fintech, education, community building">
-      </div>
-    </div>
+        <!-- LEFT SIDEBAR -->
+        <aside class="profile-card">
+            <div class="profile-cover">
+                <div class="profile-avatar-wrap">
+                    <div class="profile-avatar"><?= e($initials) ?></div>
+                    <div class="profile-avatar-plus">+</div>
+                </div>
+            </div>
+            
+            <div class="profile-details">
+                <h2><?= e($form['name']) ?></h2>
+                <div class="profile-industry"><?= $form['industry'] ? e($form['industry']) : 'Member' ?> &middot; Johannesburg</div>
+                
+                <div class="verified-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Verified member
+                </div>
 
-    <div class="field">
-      <label for="career_goals">Career goals</label>
-      <input type="text" id="career_goals" name="career_goals" value="<?= e($form['career_goals']) ?>" maxlength="500" placeholder="e.g. Become a data analyst within 2 years">
-    </div>
+                <div class="strength-box">
+                    <div class="strength-header">
+                        <span>Profile strength</span>
+                        <span style="color: #ec4899;">80%</span>
+                    </div>
+                    <div class="strength-track">
+                        <div class="strength-fill"></div>
+                    </div>
+                    <p style="font-size:0.8rem; color:#666; margin:0;">Add your mentoring interests to help the right women find you.</p>
+                </div>
 
-    <div class="field">
-      <label for="industry">Industry / field of study</label>
-      <input type="text" id="industry" name="industry" value="<?= e($form['industry']) ?>" maxlength="120" placeholder="e.g. Technology, Marketing, Public Health">
-    </div>
+                <div class="privacy-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <div>
+                        <p>Your private details stay private.</p>
+                        <span>Your email, password and exact location are never shown publicly.</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
 
-    <div class="field">
-      <label style="display:flex;align-items:center;gap:8px;font-weight:600;">
-        <input type="checkbox" name="is_mentor" value="1" <?= $form['is_mentor'] ? 'checked' : '' ?>>
-        I'm available to mentor other women
-      </label>
-      <div class="hint">When checked, you appear in the Mentors filter on the Mentorship page.</div>
-    </div>
+        <!-- RIGHT PANELS -->
+        <div>
+            <!-- About you -->
+            <div class="settings-panel">
+                <div class="panel-head">
+                    <div class="panel-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <div>
+                        <h2>About you</h2>
+                        <p>Only share details you are comfortable showing to the community.</p>
+                    </div>
+                </div>
 
-    <button type="submit" class="btn btn-primary">Save profile</button>
-    <a class="btn btn-outline" href="<?= BASE_URL ?>/profile.php" style="margin-left:8px;">Cancel</a>
-  </form>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Display name</label>
+                        <input type="text" name="name" value="<?= e($form['name']) ?>" required>
+                        <span class="hint">Use a first name and initial if you prefer more privacy.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <select name="industry">
+                            <option value="">Select industry...</option>
+                            <option value="Product design" <?= $form['industry'] === 'Product design' ? 'selected' : '' ?>>Product design</option>
+                            <option value="Technology" <?= $form['industry'] === 'Technology' ? 'selected' : '' ?>>Technology</option>
+                            <option value="Finance" <?= $form['industry'] === 'Finance' ? 'selected' : '' ?>>Finance</option>
+                            <option value="Marketing" <?= $form['industry'] === 'Marketing' ? 'selected' : '' ?>>Marketing</option>
+                            <option value="Legal" <?= $form['industry'] === 'Legal' ? 'selected' : '' ?>>Legal</option>
+                            <option value="Public Health" <?= $form['industry'] === 'Public Health' ? 'selected' : '' ?>>Public Health</option>
+                        </select>
+                    </div>
+                </div>
 
-<?php endif; ?>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>City or region</label>
+                        <input type="text" value="Johannesburg" readonly style="background: #fdfafb;">
+                        <span class="hint">Never enter your street address.</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Short bio</label>
+                    <textarea name="bio" style="min-height: 110px;"><?= e($form['bio']) ?></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Skills &amp; interests</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fdfafb;">
+                        <?php 
+                        $skillsArray = array_filter(array_map('trim', explode(',', $form['skills'])));
+                        if (empty($skillsArray)) $skillsArray = ['Add a skill'];
+                        foreach ($skillsArray as $skill): 
+                        ?>
+                            <div style="background: #f3e8ff; color: #7e22ce; padding: 6px 12px; border-radius: 99px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                <?= e($skill) ?> <span style="cursor:pointer;">&times;</span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <input type="hidden" name="skills" value="<?= e($form['skills']) ?>">
+                </div>
+            </div>
+
+            <!-- Privacy & contact -->
+            <div class="settings-panel">
+                <div class="panel-head">
+                    <div class="panel-icon" style="background: #fdf2f8; color: #ec4899;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                    <div>
+                        <h2>Privacy &amp; contact</h2>
+                        <p>You are always in control of your visibility and conversations.</p>
+                    </div>
+                </div>
+
+                <div class="form-row" style="grid-template-columns: 1fr auto; margin-bottom: 24px; background: #fdfafb; padding: 16px; border-radius: 12px;">
+                    <div style="font-weight: 700; color: #4b1979; display: flex; align-items: center;">Who can see my full profile?</div>
+                    <select style="padding: 10px 16px; border-radius: 99px; border: 1px solid #e5e7eb; background: white; font-family: inherit; font-weight: 500;">
+                        <option>My connections only</option>
+                        <option>Everyone on Bloom</option>
+                    </select>
+                </div>
+
+                <div class="toggle-row">
+                    <div>
+                        <h4>Allow connection requests</h4>
+                        <p>Verified members can ask to connect. You approve every request.</p>
+                    </div>
+                    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                </div>
+
+                <div class="toggle-row">
+                    <div>
+                        <h4>Available to mentor</h4>
+                        <p>Show up in the mentorship directory for other women.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="is_mentor" value="1" <?= $form['is_mentor'] ? 'checked' : '' ?>>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Account security -->
+            <div class="settings-panel">
+                <div class="panel-head">
+                    <div class="panel-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <div>
+                        <h2>Account security</h2>
+                        <p>Extra protection keeps your account and community safer.</p>
+                    </div>
+                </div>
+
+                <div class="toggle-row">
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <div class="panel-icon" style="width:40px; height:40px; background:#f3e8ff; color:#7e22ce;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <div>
+                            <h4>Email verified</h4>
+                            <p>a*****@gmail.com</p>
+                        </div>
+                    </div>
+                    <span style="background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 700;">Protected</span>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

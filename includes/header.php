@@ -1,16 +1,15 @@
 <?php
-// includes/header.php
 declare(strict_types=1);
-
 require_once __DIR__ . '/auth.php';
+if (!defined('BASE_URL')) { require_once __DIR__ . '/../config/config.php'; }
 
 $pageTitle  = $pageTitle  ?? SITE_NAME;
 $activeNav  = $activeNav  ?? '';
 $navItems = [
-    'resources'     => ['Resources',     BASE_URL . '/resources.php'],
-    'mentors'       => ['Mentors',       BASE_URL . '/mentors.php'],
-    'opportunities' => ['Opportunities', BASE_URL . '/opportunities.php'],
     'dashboard'     => ['Dashboard',     BASE_URL . '/dashboard.php'],
+    'explore'       => ['Explore',       BASE_URL . '/explore.php'],
+    'community'     => ['Community',     BASE_URL . '/community.php'],
+    'requests'      => ['My Requests',   BASE_URL . '/my-requests.php'],
 ];
 ?>
 <!DOCTYPE html>
@@ -32,17 +31,16 @@ $navItems = [
   <div class="auth-nav">
     <?php if (is_logged_in()): ?>
       <a href="<?= BASE_URL ?>/profile.php">Profile</a>
-      <a href="<?= BASE_URL ?>/my-requests.php">My Requests</a>
-      <a class="btn btn-outline" href="<?= BASE_URL ?>/logout.php">Log out</a>
+      <a href="<?= BASE_URL ?>/my-requests.php">Requests</a>
+      <a class="btn btn-outline btn-sm" href="<?= BASE_URL ?>/logout.php">Log out</a>
     <?php else: ?>
       <a href="<?= BASE_URL ?>/login.php">Log in</a>
-      <a class="btn btn-primary" href="<?= BASE_URL ?>/register.php">Join us</a>
+      <a class="btn btn-primary btn-sm" href="<?= BASE_URL ?>/register.php">Join Bloom</a>
     <?php endif; ?>
   </div>
 </header>
 <main class="container">
 <?php
-$__err = get_flash('error');
-$__ok  = get_flash('success');
+$__err = get_flash('error'); $__ok = get_flash('success');
 if ($__err): ?><div class="flash flash-error"><?= e($__err) ?></div><?php endif;
 if ($__ok):  ?><div class="flash flash-success"><?= e($__ok) ?></div><?php endif;

@@ -1,12 +1,9 @@
 <?php
-// config/db.php
-// Usage:  $pdo = require __DIR__ . '/../config/db.php';
-
 declare(strict_types=1);
 
 $host = getenv('DB_HOST') ?: '127.0.0.1';
 $port = getenv('DB_PORT') ?: '3306';
-$name = getenv('DB_NAME') ?: 'she_connects';
+$name = getenv('DB_NAME') ?: 'she_connects'; // Keeping DB name
 $user = getenv('DB_USER') ?: 'root';
 $pass = getenv('DB_PASS') ?: '';
 
@@ -21,7 +18,6 @@ try {
 } catch (PDOException $e) {
     error_log('DB connection failed: ' . $e->getMessage());
     http_response_code(500);
-    exit('Database connection error. Please check the server configuration.');
+    exit('Database connection error.');
 }
-
 return $pdo;
